@@ -69,7 +69,7 @@ func Discord() error {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt)
 	s := <-sc
-	fmt.Printf("Got signal: %s", s)
+	fmt.Printf("\nGot signal: %s\n", s)
 
 	return nil
 }
@@ -84,7 +84,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		panic(err)
 	}
 
-	yes := fmt.Sprintf("\n%s%s (%s): %s", m.Author.Username, m.Author.Discriminator, m.Author.ID, m.Content)
+	yes := fmt.Sprintf("\n%s (%s): %s", m.Author.Username+"#"+m.Author.Discriminator, m.Author.ID, m.Content)
 
 	if m.Author.Username+"#"+m.Author.Discriminator == *username {
 		fmt.Println(yes)
@@ -95,8 +95,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		fmt.Println(yes)
 		stmt.Exec(m.Author.Username+"#"+m.Author.Discriminator, m.Author.ID, m.Content)
 	}
-	// fmt.Printf("\n%s (%s): %s", m.Author.Username, m.Author.ID, m.Content)
-	// stmt.Exec(m.Author.Username, m.Author.ID, m.Content)
+
 	// I don't have to close the database connection because the connection is automatically closed on exit.
 	// Thus, there will be no open connections, and the connections will not keep growing when starting the program again.
 }
