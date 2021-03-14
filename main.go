@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	t      = flag.String("t", "", "discord token")
-	victim = flag.String("v", "", "victim")
-	ctx    context.Context
-	pool   *sql.DB // database connection pool
+	t        = flag.String("t", "", "discord token")
+	username = flag.String("u", "", "username")
+	ctx      context.Context
+	pool     *sql.DB // database connection pool
 )
 
 func init() {
@@ -52,7 +52,7 @@ func Discord() error {
 
 	d, err := discordgo.New("Bot " + *t)
 	if err != nil {
-		return errors.Wrap(err, "Couldn't create session")
+		return errors.Wrap(err, "Couldn't create session or you haven't passed a discord token")
 	}
 
 	d.AddHandler(messageCreate)
@@ -60,10 +60,9 @@ func Discord() error {
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 
 	err = d.Open()
-	if err != nil {
-		errors.Wrap(err, "Couldn't open ws connection")
+	if err != nil || *t == "" {
+		return errors.Wrap(err, "Couldn't open ws connection. Make sure you've passed a token using -t")
 	}
-
 	fmt.Printf("Ready! To cancel, press CTRL-C")
 
 	// Send an interrupt signal to interrupt with ctrl-c
@@ -80,16 +79,31 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.Author.Username == *victim {
-		fmt.Printf("\n%s (%s): %s", *victim, m.Author.ID, m.Content)
-		stmt, err := pool.Prepare("INSERT INTO discord (uname, uid, msg) VALUES (?, ?, ?)")
-		if err != nil {
-			panic(err)
-		}
-		stmt.Exec(*victim, m.Author.ID, m.Content)
+	stmt, err := pool.Prepare("INSERT INTO discord (uname, uid, msg) VALUES (?, ?, ?)")
+	if err != nil {
+		panic(err)
 	}
+
+	yes := fmt.Sprintf("\n%s%s (%s): %s", m.Author.Username, m.Author.Discriminator, m.Author.ID, m.Content)
+
+	if m.Author.Username+"#"+m.Author.Discriminator == *username {
+		fmt.Println(yes)
+		stmt.Exec(m.Author.Username+"#"+m.Author.Discriminator, m.Author.ID, m.Content)
+	}
+
+	if *username == "" {
+		fmt.Println(yes)
+		stmt.Exec(m.Author.Username+"#"+m.Author.Discriminator, m.Author.ID, m.Content)
+	}
+	// fmt.Printf("\n%s (%s): %s", m.Author.Username, m.Author.ID, m.Content)
+	// stmt.Exec(m.Author.Username, m.Author.ID, m.Content)
+	// I don't have to close the database connection because the connection is automatically closed on exit.
+	// Thus, there will be no open connections, and the connections will not keep growing when starting the program again.
 }
 
 func main() {
-	_ = Discord()
+	err := Discord()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
